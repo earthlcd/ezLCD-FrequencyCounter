@@ -12,6 +12,7 @@
 -- GPIO_PIN_0, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_5, GPIO_PIN_10
 
 FREQ_Pin = 2
+EDGE_Count_Last = 0
 EDGE_Count = 0
 EDGE_Last = 0
 EDGE_This = 0
@@ -19,10 +20,20 @@ PERIOD = 0;
 
 function MyInterrupt(pin_no)
 	EDGE_This = os.clock()
-	PERIOD = EDGE_This - EDGE_Last
-	EDGE_Last = EDGE_This
+	EDGE_Delta = EDGE_This - EDGE_Last
 
-	EDGE_Count = EDGE_Count + 1
+	if EDGE_Delta > 1.00 then
+		EDGE_Last = EDGE_This
+		if EDGE_Count > 0 then
+			PERIOD = EDGE_Delta / EDGE_Count
+		else
+			PERIOD = EDGE_Delta
+		end
+		EDGE_Count = 0
+	else
+		EDGE_Count = EDGE_Count + 1
+	end
+
 end
 
 
@@ -51,7 +62,7 @@ function MainFunction()
 		print(string.format("   PERIOD %f", PERIOD))
 		print(string.format("   FREQENCY %f", 1/PERIOD))
 
-		ez.Wait_ms(250)
+		--ez.Wait_ms(250)
 	end
 	
 end
