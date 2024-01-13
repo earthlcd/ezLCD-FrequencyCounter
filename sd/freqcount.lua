@@ -20,17 +20,26 @@ PERIOD = 0;
 PERIOD_AVERAGE = 0;
 
 function MyInterrupt(pin_no)
-	EDGE_This = os.clock()
-	EDGE_Delta = EDGE_This - EDGE_Last
+	-- This interrupt is fired when there is a change on the pin we are trying to measure the frequency of.
 
-	if EDGE_Delta > 1.00 then
+	EDGE_This = os.clock() -- Get the current time
+	EDGE_Delta = EDGE_This - EDGE_Last -- Calculate the delta time since the last edge
+
+	-- Becuase our timer (os.clock()) resolution is only 1ms we can't time periods less than 1ms.  Instead we count edges
+	-- over a longer period of time and then average the period by the number of edges.
+	-- if more than 1 second has gone by since the detected the first edge we are ready to calculate the period
+	if EDGE_Delta > 1.00 then 
 		EDGE_Last = EDGE_This
 		if EDGE_Count > 0 then
+			-- If we have seen more than one edge then we divide the EDGE_Delta by the EDGE_Count to find the period
 			PERIOD = EDGE_Delta / EDGE_Count
 		else
+			-- If we have only seen the first edge in more than one second then we will use EDGE_Delta for our period
 			PERIOD = EDGE_Delta
 		end
-		PERIOD_AVERAGE = PERIOD_AVERAGE * 0.2 + PERIOD * 0.8
+		-- This is a low pass filter that uses 95% of our current measurment with 5% of our old average
+		PERIOD_AVERAGE = PERIOD_AVERAGE * 0.05 + PERIOD * 0.95
+		-- reset the edge count to zero
 		EDGE_Count = 0
 	else
 		EDGE_Count = EDGE_Count + 1
@@ -38,13 +47,7 @@ function MyInterrupt(pin_no)
 
 end
 
-
-function MainFunction()
-	local background_color = ez.RGB(0, 0, 0)
-	ez.SetPinInp(FREQ_Pin,true,false) -- GPIO: DIGITAL PULSE (FREQ) IN: CONFIGURES THE I/O PIN AS DISCRETE INPUT, (PULL-UP) & PULL-DOWN BOTH DISABLED (DEFAULT)
-	-- Assign on change interrupt to pin 1
-	ez.SetPinIntr(FREQ_Pin, "MyInterrupt", 1) -- 1 = Rising edge only
-
+function DisplayHeader()
 	ez.Cls(ez.RGB(0, 0, 0))
 	ez.BoxFill(0, 0, ez.Width, 40, ez.RGB(64,64,64)) -- X1, Y1, X2, Y2, Color
 
@@ -52,24 +55,47 @@ function MainFunction()
 	ez.SetColor(ez.RGB(255,255,255))
 	ez.SetXY(0,10)
 	print(string.format(" EarthLCD Frequency Counter"))
+end
+
+function MainFunction()
+	local next_refresh = 0.0 -- This variable keeps track of the next screen refreash time
+
+	-- The next two lines configure the interrupt pin
+	ez.SetPinInp(FREQ_Pin,true,false) -- GPIO: DIGITAL PULSE (FREQ) IN: CONFIGURES THE I/O PIN AS DISCRETE INPUT, (PULL-UP) & PULL-DOWN BOTH DISABLED (DEFAULT)
+	-- Assign on change interrupt to pin 1
+	ez.SetPinIntr(FREQ_Pin, "MyInterrupt", 1) -- 1 = Rising edge only
+
+	-- Display the program header
+	DisplayHeader()
 
 	while (1) do
-		local x1 = 0
-		local x2 = ez.Width
-		local y1 = 90
-		local y2 = y1 +100
 
-		ez.BoxFill(x1,y1, x2,y2, ez.RGB(0, 0, 0)) -- X1, Y1, X2, Y2, Color
+		-- Check if enought time has gone by so that we can refresh the screen
+		if os.clock() > next_refresh then
+			local x1 = 0
+			local x2 = ez.Width
+			local y1 = 90
+			local y2 = y1 +100
 
-		ez.SetXY(x1,y1+20)
-		ez.SetColor(ez.RGB(255,255,0))
-		print(string.format("   FREQENCY %0.2f Hz", 1/PERIOD_AVERAGE))
-		ez.SetColor(ez.RGB(0,255,255))
-		print(string.format("   PERIOD %f sec", PERIOD_AVERAGE))
-		ez.SetColor(ez.RGB(255,0,255))
-		print(string.format("   EDGE_Count %d", EDGE_Count))
+			-- Erase the old measurements
+			ez.BoxFill(x1,y1, x2,y2, ez.RGB(0, 0, 0)) -- X1, Y1, X2, Y2, Color
 
-		--ez.Wait_ms(250) -- Addeing this delay prevents measurements of periods less than the delay period
+			-- Position the cursor to where we are going to start drawing our measurements
+			ez.SetXY(x1,y1+20)
+			-- Set the forground (text) color
+			ez.SetColor(ez.RGB(255,255,0))
+			-- Display the average frequency
+			print(string.format("   FREQENCY %0.2f Hz", 1/PERIOD_AVERAGE))
+			ez.SetColor(ez.RGB(0,255,255))
+			-- Display the average period
+			print(string.format("   PERIOD %f sec", PERIOD_AVERAGE))
+			ez.SetColor(ez.RGB(255,0,255))
+			-- Display edge count (for sub second pulses)
+			print(string.format("   EDGE_Count %d", EDGE_Count))
+	
+			--ez.Wait_ms(250) -- Addeing this delay prevents measurements of periods less than the delay period
+			next_refresh = os.clock() + 0.25
+		end
 	end
 	
 end
