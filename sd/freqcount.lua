@@ -32,7 +32,7 @@ function MyInterrupt(pin_no)
 		EDGE_Last = EDGE_This
 		if EDGE_Count > 0 then
 			-- If we have seen more than one edge then we divide the EDGE_Delta by the EDGE_Count to find the period
-			PERIOD = EDGE_Delta / EDGE_Count
+			PERIOD = EDGE_Delta / (EDGE_Count + 1)
 		else
 			-- If we have only seen the first edge in more than one second then we will use EDGE_Delta for our period
 			PERIOD = EDGE_Delta
@@ -62,8 +62,16 @@ function MainFunction()
 
 	-- The next two lines configure the interrupt pin
 	ez.SetPinInp(FREQ_Pin,true,false) -- GPIO: DIGITAL PULSE (FREQ) IN: CONFIGURES THE I/O PIN AS DISCRETE INPUT, (PULL-UP) & PULL-DOWN BOTH DISABLED (DEFAULT)
-	-- Assign on change interrupt to pin 1
-	ez.SetPinIntr(FREQ_Pin, "MyInterrupt", 1) -- 1 = Rising edge only
+
+	-- Assign on change interrupt
+	-- ez.SetPinIntr(PinNo, LuaFunction [, edgeSelect [, pullUp [, pullDn]]])
+	-- edgeSelect
+	--   0 = Rising and Falling Edge (default)
+	--   1 = Rising Edge Only
+	--   2 = Falling Edge Only
+	-- pullUp / pullDown
+	--   true/false
+	ez.SetPinIntr(FREQ_Pin, "MyInterrupt", 1)
 
 	-- Display the program header
 	DisplayHeader()
